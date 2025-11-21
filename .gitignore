@@ -1,0 +1,22 @@
+# Model files
+*.pth
+*.pt
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Env
+venv/
+.env/
+
+# Dataset
+data/
+dataset/
+*.zip
+
+# OS files
+.DS_Store
