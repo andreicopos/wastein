@@ -1,6 +1,6 @@
 # Model files
-*.pth
-*.pt
+# *.pth
+# *.pt
 
 # Python cache
 __pycache__/
