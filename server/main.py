@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 import torch
@@ -10,7 +10,19 @@ import io
 # CONFIG
 # ==========================
 MODEL_PATH = "model_best.pth"
-CLASSES = ["cardboard", "glass", "metal", "paper", "plastic", "trash"]
+AI_CLASSES = ["cardboard", "glass", "metal", "paper", "plastic", "trash"]
+
+# ==========================
+# MAPPING AI_CLASSES TO BINS
+# ==========================
+BIN_MAPPING = {
+    "cardboard": "paper",
+    "paper": "paper",
+    "plastic": "plastic_metal",
+    "metal": "plastic_metal",
+    "glass": "glass",  # Assuming you don't have a glass bin, it goes to general waste
+    "trash": "waste"
+}
 
 # ==========================
 # FASTAPI SETUP
@@ -31,7 +43,7 @@ app.add_middleware(
 device = "cpu"
 
 model = models.mobilenet_v2(weights=None)
-model.classifier[1] = torch.nn.Linear(model.last_channel, len(CLASSES))
+model.classifier[1] = torch.nn.Linear(model.last_channel, len(AI_CLASSES))
 model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
 model.to(device)
 model.eval()
@@ -47,10 +59,10 @@ transform = transforms.Compose([
 # ==========================
 # PREDICTION ENDPOINT
 # ==========================
-@app.post("/predict")
-async def predict(file: UploadFile = File(...)):
+@app.post("/predict_raw")
+async def predict_raw(request: Request):
     # Read image
-    image_bytes = await file.read()
+    image_bytes = await request.body()
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
     # Preprocess
@@ -61,10 +73,13 @@ async def predict(file: UploadFile = File(...)):
         output = model(input_tensor)
         _, predicted = output.max(1)
 
-    predicted_class = CLASSES[predicted.item()]
+    predicted_class = AI_CLASSES[predicted.item()]
+
+    physical_bin = BIN_MAPPING.get(predicted_class, "waste")
 
     return {
-        "class": predicted_class
+        "class": predicted_class, 
+        "bin": physical_bin
     }
 
 # ==========================
